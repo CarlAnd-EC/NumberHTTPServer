@@ -1,0 +1,32 @@
+{
+  "name": "numberhttpserver",
+  "version": "1.0.0",
+  "description": "A basic HTTP server that stores one number that can be updated, aritmethically operated, and deleted.",
+  "main": "NumberHTTPServer.js",
+  "dependencies": {
+    "nodemon": "^2.0.7"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "npx nodemon NumberHTTPServer.js",
+    "start": "node NumberHTTPServer.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CarlosAEC-KS/NumberHTTPServer.git"
+  },
+  "keywords": [
+    "HTTP",
+    "Server",
+    "query",
+    "parameter",
+    "HTTP",
+    "methods"
+  ],
+  "author": "Carlos Andrés Escalona Contreras",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CarlosAEC-KS/NumberHTTPServer/issues"
+  },
+  "homepage": "https://github.com/CarlosAEC-KS/NumberHTTPServer#readme"
+}
