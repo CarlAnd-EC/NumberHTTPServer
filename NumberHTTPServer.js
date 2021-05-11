@@ -17,81 +17,150 @@ Use body payload to send the value: { myNumber: 123 }. Don't create one number p
 
 */
 const http = require('http');
-var path = require('path');
-const fs = require('fs');
 
 const PORT = 9000;
-// const publicDir = path.join(__dirname.replace('src',''),'public');
+var myNumber = null;
 
 const serverRoutes = {
   '/myNumber':{
     method:{
-      GET: ()=> "./views/myWebPage.html",
-      POST:()=> ""
+      GET: ()=> getNumber(),
+      POST:()=> updateNumber()
     }
   },
   '/reset':{
     method:{
-      DELETE: ()=> "books-DELETE"
+      DELETE: ()=> deleteNumber()
     }
   }
-}; 
-
-const mime = {
-  html: 'text/html',
-  txt: 'text/plain',
-  css: 'text/css',
-  gif: 'image/gif',
-  jpg: 'image/jpeg',
-  png: 'image/png',
-  svg: 'image/svg+xml',
-  js: 'application/javascript'
 };
 
 const statusCodes= {
-  informational: {}, //(100–199)
-  successful: {},   //(200–299)
-  redirects: {},    //(300–399)
-  clientError: {},  //(400–499)
-  serverError: {},  //(500–599)
+  informational: {},  //(100–199)
+  successful: {
+    GET: 200,
+    POST: 201
+  },                  //(200–299)
+  redirects: {},      //(300–399)
+  clientError: {},    //(400–499)
+  serverError: {},    //(500–599)
 }
 const server = http.createServer(
   (request,response)=>{
-    console.log(request);
     const {url,method} = request;
-
-    if ( serverRoutes.hasOwnProperty(url) ){
-      const res = evaluateRequest(url,method);
-      const type = mime[path.extname(res.view).slice(1)] || 'text/plain';
-      console.log(`${res.view} ${res.statusCode} ${method} ${type}`);
-      fs.readFile(res.view, "UTF-8", function(err, html){
-        response.writeHead(res.statusCode, {"Content-Type": type});
-        response.end(html);
-      });
+    const res = evaluateRequest(url,method);
+    if(res.status ==='approved'){
+      let result = null;
+      switch (method) {
+        case 'POST':
+          let body;
+          collectRequestData(request, data => {
+            body = data;
+          });
+          result = serverRoutes[`${url}`].method.POST(Number(body));
+          res.statusCode = result.statusCode;
+          res.type = result.type;
+          res.body = result.body;
+          break;
+        case 'GET':
+          result = serverRoutes[`${url}`].method.GET();
+          res.statusCode = result.statusCode;
+          res.type = result.type;
+          res.body = result.body;
+          break;
+        case 'DELETE':
+          result = serverRoutes[`${url}`].method.DELETE();
+          res.statusCode = result.statusCode;
+          res.type = result.type;
+          res.body = result.body;
+          break;
+        default:
+          break;
+      }  
     }
-    else{
-      // 404 Not Found
-      response.writeHead(404, {"Content-Type": 'text/html'});
-      response.end("Error: 404 Not Found");
-    }
+    
+    console.log(`${res.statusCode} ${method} ${url} ${res.type} ${res.body}`);
+    response.writeHead(res.statusCode, {"Content-Type": res.type});
+    response.end(res.body);
     
   }).listen(PORT, ()=>console.log(`Server running at port: ${PORT}`));
 
 function evaluateRequest(route,method){
-  let response = {};
   if(!serverRoutes.hasOwnProperty(route)){
     // 404 Not Found
-    response.statusCode = 404;
-    response.body = "Error 404: Method Not Allowed";
-    return response;
+    return {
+      status:'denied',
+      statusCode: 404,
+      type: 'text/plain',
+      body: "Error 404: Resource not found"
+    };
   }
   if(!serverRoutes[`${route}`].method.hasOwnProperty(method)){
     // 405 Method Not Allowed
-    response.statusCode = 405;
-    response.body = "Error 405: Method Not Allowed";
-    return response;
+    return {
+      status:'denied',
+      statusCode: 405,
+      type: 'text/plain',
+      body: "Error 405: Method Not Allowed"
+    };
   }
-  response.statusCode = 200;
-  response.body = serverRoutes[`${route}`].method[`${method}`]();
-  return response;
+  return {status: 'approved'};
+}
+
+function getNumber(){
+  if(myNumber===null) {
+    return {
+      statusCode: 404,
+      type: 'text/plain',
+      body: "Error 404: Resource does not exist"
+    };
+  }
+  return {
+    statusCode: 200,
+    type: 'text/plain',
+    body: myNumber
+  };
+}
+function updateNumber(newNumber){
+  if(myNumber===null){
+    myNumber = newNumber;
+    return {
+      statusCode: 201,
+      type: 'text/plain',
+      body: "Created successfully"
+    };
+  }
+  myNumber = newNumber;
+  return {
+    statusCode: 200,
+    type: 'text/plain',
+    body: "Updated successfully"
+  };
+}
+
+function deleteNumber(){
+  myNumber=null;
+  return {
+    statusCode: 200,
+    type: 'text/plain',
+    body: "Deleted successfully"
+  };
+}
+function collectRequestData(request, callback) {
+    let body = '';
+    request.on('data', chunk => {
+      switch (request.headers['content-type']) {
+        case 'text/plain':
+          body += chunk;
+          break;
+        case 'application/json':
+          body = '0';
+          break;
+        default:
+          break;
+      }
+    });
+    request.on('end', () => {
+      callback(Number(body));
+    });
 }
