@@ -25,7 +25,7 @@ const serverRoutes = {
   '/myNumber':{
     method:{
       GET: ()=> getNumber(),
-      POST:()=> updateNumber()
+      POST:(newNumber)=> updateNumber(newNumber)
     }
   },
   '/reset':{
@@ -35,54 +35,27 @@ const serverRoutes = {
   }
 };
 
-const statusCodes= {
-  informational: {},  //(100–199)
-  successful: {
-    GET: 200,
-    POST: 201
-  },                  //(200–299)
-  redirects: {},      //(300–399)
-  clientError: {},    //(400–499)
-  serverError: {},    //(500–599)
-}
 const server = http.createServer(
-  (request,response)=>{
-    const {url,method} = request;
-    const res = evaluateRequest(url,method);
-    if(res.status ==='approved'){
-      let result = null;
-      switch (method) {
-        case 'POST':
-          let body;
-          collectRequestData(request, data => {
-            body = data;
-          });
-          result = serverRoutes[`${url}`].method.POST(Number(body));
+  async (request,response)=>{
+    try{
+      const {url,method} = request;
+      const res = evaluateRequest(url,method);
+      if(res.status ==='approved'){
+          const result = await handleRequest(request);
           res.statusCode = result.statusCode;
           res.type = result.type;
-          res.body = result.body;
-          break;
-        case 'GET':
-          result = serverRoutes[`${url}`].method.GET();
-          res.statusCode = result.statusCode;
-          res.type = result.type;
-          res.body = result.body;
-          break;
-        case 'DELETE':
-          result = serverRoutes[`${url}`].method.DELETE();
-          res.statusCode = result.statusCode;
-          res.type = result.type;
-          res.body = result.body;
-          break;
-        default:
-          break;
-      }  
+          res.body = String(result.body);
+      }
+      console.log(`${res.statusCode} ${method} ${url} ${res.type} ${res.body}`);
+      response.writeHead(res.statusCode, {"Content-Type": res.type});
+      response.end(res.body);
     }
-    
-    console.log(`${res.statusCode} ${method} ${url} ${res.type} ${res.body}`);
-    response.writeHead(res.statusCode, {"Content-Type": res.type});
-    response.end(res.body);
-    
+    catch (error) {
+      console.error(error);
+    }
+    finally{
+      console.log("Request served");
+    }
   }).listen(PORT, ()=>console.log(`Server running at port: ${PORT}`));
 
 function evaluateRequest(route,method){
@@ -107,6 +80,54 @@ function evaluateRequest(route,method){
   return {status: 'approved'};
 }
 
+async function handleRequest(request){
+  switch (request.method) {
+    case 'GET':
+      return serverRoutes[`${request.url}`].method.GET();
+    case 'POST':
+      try {
+        const body = await collectRequestData(request);
+        const response = await serverRoutes[`${request.url}`].method.POST(body);
+        return response;
+      } catch (error) {
+        console.error(error);
+      }
+    case 'DELETE':
+      return serverRoutes[`${request.url}`].method.DELETE();
+    default:
+      break;
+  }
+}
+
+function collectRequestData(request) {
+  return new Promise((resolve, reject) => {  
+    let body = '';
+    request.on('data', chunk => {
+      switch (request.headers['content-type']) {
+        case 'text/plain':
+          body += chunk;
+          break;
+        case 'application/json':
+          body = JSON.parse(chunk)['number'];
+          break;
+        default:
+          break;
+      }
+    });
+    request.on('end', () => {
+      resolve(body);
+    });
+  })
+  /* .then(function(val) {
+    // Log the fulfillment value
+    console.log(`beforeend ${typeof val} ${val} Promise fulfilled`);
+  }) */
+  .catch((reason) => {
+    // Log the rejection reason
+    console.log(`Handle rejected promise (${reason}) here.`);
+  }); 
+}
+
 function getNumber(){
   if(myNumber===null) {
     return {
@@ -121,7 +142,15 @@ function getNumber(){
     body: myNumber
   };
 }
-function updateNumber(newNumber){
+function updateNumber(numberString){
+  const newNumber = Number(numberString);
+  if(Number.isNaN(newNumber)){
+    return {
+      statusCode: 400,
+      type: 'text/plain',
+      body: "Error 400: Bad request"
+    };
+  }
   if(myNumber===null){
     myNumber = newNumber;
     return {
@@ -145,22 +174,4 @@ function deleteNumber(){
     type: 'text/plain',
     body: "Deleted successfully"
   };
-}
-function collectRequestData(request, callback) {
-    let body = '';
-    request.on('data', chunk => {
-      switch (request.headers['content-type']) {
-        case 'text/plain':
-          body += chunk;
-          break;
-        case 'application/json':
-          body = '0';
-          break;
-        default:
-          break;
-      }
-    });
-    request.on('end', () => {
-      callback(Number(body));
-    });
 }
