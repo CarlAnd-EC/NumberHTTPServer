@@ -44,7 +44,7 @@ const server = http.createServer(
           const result = await handleRequest(request);
           res.statusCode = result.statusCode;
           res.type = result.type;
-          res.body = String(result.body);
+          res.body = result.body;
       }
       console.log(`${res.statusCode} ${method} ${url} ${res.type} ${res.body}`);
       response.writeHead(res.statusCode, {"Content-Type": res.type});
@@ -59,6 +59,9 @@ const server = http.createServer(
   }).listen(PORT, ()=>console.log(`Server running at port: ${PORT}`));
 
 function evaluateRequest(route,method){
+  if(route.includes('/myNumber/')){
+    return multiplyNumber(route.slice(route.indexOf('/myNumber/')+10));
+  }
   if(!serverRoutes.hasOwnProperty(route)){
     // 404 Not Found
     return {
@@ -139,7 +142,7 @@ function getNumber(){
   return {
     statusCode: 200,
     type: 'text/plain',
-    body: myNumber
+    body: String(myNumber)
   };
 }
 function updateNumber(numberString){
@@ -166,12 +169,28 @@ function updateNumber(numberString){
     body: "Updated successfully"
   };
 }
-
 function deleteNumber(){
   myNumber=null;
   return {
     statusCode: 200,
     type: 'text/plain',
     body: "Deleted successfully"
+  };
+}
+function multiplyNumber(multiplierString){
+  const multiplier = Number(multiplierString);
+  if(myNumber==null || Number.isNaN(multiplier)){
+    return {
+      status:'denied',
+      statusCode: 400,
+      type: 'text/plain',
+      body: "Error 400: Bad request"
+    };
+  }
+  return {
+    status:'operation',
+    statusCode: 200,
+    type: 'text/plain',
+    body: `${myNumber*multiplier}`
   };
 }
